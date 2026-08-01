@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Калькулятор рабочего времени</title>
+    <style>
+        body {
+            font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #f4f4f2;
+            color: #222;
+            margin: 0;
+            padding: 24px;
+        }
+
+        .wrap {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        p.hint {
+            color: #666;
+            font-size: 14px;
+            margin-top: 0;
+            line-height: 1.5;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 140px;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            resize: vertical;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-size: 14px;
+            color: #444;
+        }
+
+        input[type=text] {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 80px;
+        }
+
+        button {
+            background: #d97757;
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #c1633f;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e2e2df;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-top: 20px;
+        }
+
+        .card h2 {
+            font-size: 17px;
+            font-weight: 500;
+            margin: 0 0 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #e5e5e2;
+            padding: 6px 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #faf9f7;
+            font-weight: 500;
+        }
+
+        td.dayoff {
+            color: #999;
+        }
+
+        td.over {
+            color: #1a7a3c;
+            font-weight: 500;
+        }
+
+        td.under {
+            color: #c0392b;
+            font-weight: 500;
+        }
+
+        .totals {
+            margin-top: 16px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: #faf9f7;
+            border-radius: 8px;
+            padding: 10px 16px;
+            min-width: 160px;
+        }
+
+        .stat .label {
+            font-size: 12px;
+            color: #777;
+        }
+
+        .stat .value {
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .stat .value.pos {
+            color: #1a7a3c;
+        }
+
+        .stat .value.neg {
+            color: #c0392b;
+        }
+
+        .error {
+            color: #c0392b;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        td.sunday {
+            background: #fdf3ea;
+        }
+
+        td.absent {
+            color: #c0392b;
+        }
+
+        td.late {
+            color: #c0392b;
+            font-weight: 500;
+        }
+
+        td.ontime {
+            color: #1a7a3c;
+        }
+
+        .monthinfo {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        select {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>Калькулятор рабочего времени</h1>
+        <p class="hint">
+            Вставьте по одной строке на сотрудника (как в табеле, поля через табуляцию или несколько пробелов):<br>
+            Фамилия Имя - время1 время2 ... времяN<br>
+            Выходной — «-». Без времени ухода — «чч:мм-Нет» (считается ровно норма).
+        </p>
+
+        <textarea id="input" placeholder="Расулчон	Муминов	15:07-19:57	12:22-19:25	-	11:09-Нет ..."></textarea>
+
+        <div class="row">
+            <label>Тип графика:</label>
+            <label style="display:flex; align-items:center; gap:4px; font-weight:400;">
+                <input type="radio" name="empType" value="standard" checked onchange="toggleType()"> обычный (норма
+                часов)
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-weight:400;">
+                <input type="radio" name="empType" value="consultant" onchange="toggleType()"> консультант (смены
+                10:00–16:00 / 16:00–22:00, опоздания и ранний уход)
+            </label>
+        </div>
+
+        <div class="row" id="shiftRow" style="display:none;">
+            <label for="shiftMode">Смена:</label>
+            <select id="shiftMode">
+                <option value="auto">Определять автоматически (по времени прихода)</option>
+                <option value="1">Первая (10:00–16:00) — для всех дней</option>
+                <option value="2">Вторая (16:00–22:00) — для всех дней</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <span id="normWrap">
+                <label for="norm">Дневная норма (чч:мм):</label>
+                <input type="text" id="norm" value="7:00">
+            </span>
+
+            <label for="month">Месяц:</label>
+            <select id="month"></select>
+
+            <label for="year">Год:</label>
+            <input type="text" id="year" value="2026" style="width:60px;">
+
+            <button onclick="calculate()">Рассчитать</button>
+        </div>
+
+        <div id="error" class="error"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        const WEEKDAY_SHORT = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+        (function initMonthSelect() {
+            const sel = document.getElementById('month');
+            const now = new Date();
+            MONTH_NAMES.forEach((name, i) => {
+                const opt = document.createElement('option');
+                opt.value = i + 1;
+                opt.textContent = name;
+                if (i === now.getMonth()) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            document.getElementById('year').value = now.getFullYear();
+        })();
+
+        function toggleType() {
+            const type = document.querySelector('input[name="empType"]:checked').value;
+            document.getElementById('normWrap').style.display = type === 'consultant' ? 'none' : 'inline';
+            document.getElementById('shiftRow').style.display = type === 'consultant' ? 'flex' : 'none';
+        }
+
+        function parseTime(str) {
+            const m = str.trim().match(/^(\d{1,2}):(\d{2})$/);
+            if (!m) return null;
+            return parseInt(m[1]) * 60 + parseInt(m[2]);
+        }
+
+        function fmt(mins) {
+            const sign = mins < 0 ? '-' : '';
+            mins = Math.abs(mins);
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return sign + h + ' ч ' + String(m).padStart(2, '0') + ' мин';
+        }
+
+        function calculate() {
+            const empType = document.querySelector('input[name="empType"]:checked').value;
+            if (empType === 'consultant') {
+                calculateConsultant();
+            } else {
+                calculateStandard();
+            }
+        }
+
+        function calculateConsultant() {
+            const errBox = document.getElementById('error');
+            const resultsBox = document.getElementById('results');
+            errBox.textContent = '';
+            resultsBox.innerHTML = '';
+
+            const raw = document.getElementById('input').value;
+            const monthNum = parseInt(document.getElementById('month').value);
+            const yearNum = parseInt(document.getElementById('year').value);
+            if (!monthNum || !yearNum || yearNum < 1900) {
+                errBox.textContent = 'Укажите корректные месяц и год.';
+                return;
+            }
+            const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+            let sundayCount = 0;
+            const weekdayOf = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const wd = new Date(yearNum, monthNum - 1, d).getDay();
+                weekdayOf.push(wd);
+                if (wd === 0) sundayCount++;
+            }
+
+            const SHIFT1_START = 10 * 60; // 10:00
+            const SHIFT2_START = 16 * 60; // 16:00
+            const shiftMode = document.getElementById('shiftMode').value; // 'auto' | '1' | '2'
+
+            const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) {
+                errBox.textContent = 'Вставьте хотя бы одну строку с данными.';
+                return;
+            }
+
+            lines.forEach(line => {
+                const tokens = line.split(/\t+|\s{2,}/).map(t => t.trim()).filter(t => t.length > 0);
+                let parts = tokens.length > 1 ? tokens : line.split(/\s+/);
+                const dayPattern = /^(-|\d{1,2}:\d{2}-(Нет|нет|\d{1,2}:\d{2}))$/;
+                let nameParts = [];
+                let dayParts = [];
+                let splitDone = false;
+                for (const tok of parts) {
+                    if (!splitDone && !dayPattern.test(tok)) {
+                        nameParts.push(tok);
+                    } else {
+                        splitDone = true;
+                        dayParts.push(tok);
+                    }
+                }
+                const name = nameParts.join(' ') || 'Сотрудник';
+
+                let totalLate = 0, lateDaysCount = 0, totalEarly = 0, earlyDaysCount = 0, absentCount = 0;
+                const rows = [];
+
+                for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+                    const entry = dayParts[dayNum - 1];
+                    const isSunday = weekdayOf[dayNum - 1] === 0;
+
+                    if (entry === undefined) {
+                        absentCount++;
+                        rows.push({ dayNum, isSunday, type: 'absent' });
+                        continue;
+                    }
+                    if (entry === '-') {
+                        rows.push({ dayNum, isSunday, entry, type: 'off' });
+                        continue;
+                    }
+                    const m = entry.match(/^(\d{1,2}:\d{2})-(Нет|нет|\d{1,2}:\d{2})$/);
+                    if (!m) {
+                        rows.push({ dayNum, isSunday, entry, type: 'invalid' });
+                        continue;
+                    }
+                    const start = parseTime(m[1]);
+                    // определяем смену: вручную (выбор пользователя) или автоматически по времени прихода
+                    let shift;
+                    if (shiftMode === '1') shift = 1;
+                    else if (shiftMode === '2') shift = 2;
+                    else shift = Math.abs(start - SHIFT1_START) <= Math.abs(start - SHIFT2_START) ? 1 : 2;
+                    // начало рабочего дня зависит от смены: 1-я — 10:00, 2-я — 16:00
+                    const scheduledStart = shift === 1 ? SHIFT1_START : SHIFT2_START;
+                    const scheduledEnd = shift === 1 ? SHIFT1_START + 6 * 60 : SHIFT2_START + 6 * 60; // 16:00 или 22:00
+                    const late = Math.max(0, start - scheduledStart);
+                    if (late > 0) { totalLate += late; lateDaysCount++; }
+
+                    let early = 0;
+                    let hasEndTime = m[2].toLowerCase() !== 'нет';
+                    if (hasEndTime) {
+                        const end = parseTime(m[2]);
+                        early = Math.max(0, scheduledEnd - end);
+                        if (early > 0) { totalEarly += early; earlyDaysCount++; }
+                    }
+
+                    let type = 'ontime';
+                    if (late > 0 && early > 0) type = 'both';
+                    else if (late > 0) type = 'late';
+                    else if (early > 0) type = 'early';
+
+                    rows.push({ dayNum, isSunday, entry, shift, late, early, hasEndTime, type });
+                }
+
+                const extraEntries = dayParts.length > daysInMonth ? dayParts.length - daysInMonth : 0;
+
+                let tableHtml = '<table><thead><tr><th>Дата</th><th>День нед.</th><th>Время</th><th>Смена</th><th>Опоздание</th><th>Ранний уход</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    const sundayCls = r.isSunday ? 'sunday' : '';
+                    const wd = WEEKDAY_SHORT[weekdayOf[r.dayNum - 1]];
+                    if (r.type === 'absent') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td colspan="4" class="absent">${r.dayNum} число — не был на работе (данных нет)</td></tr>`;
+                    } else if (r.type === 'off') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>-</td><td class="dayoff">выходной</td><td>-</td><td>-</td></tr>`;
+                    } else if (r.type === 'invalid') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>${r.entry}</td><td colspan="3" style="color:#c0392b;">не удалось распознать</td></tr>`;
+                    } else {
+                        const shiftLabel = r.shift === 1 ? '10:00–16:00' : '16:00–22:00';
+                        const lateCell = r.late > 0 ? fmt(r.late) : '—';
+                        const earlyCell = r.hasEndTime ? (r.early > 0 ? fmt(r.early) : '—') : 'нет данных';
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>${r.entry}</td><td>${shiftLabel}</td><td class="${r.late > 0 ? 'late' : 'ontime'}">${lateCell}</td><td class="${r.early > 0 ? 'late' : 'ontime'}">${earlyCell}</td></tr>`;
+                    }
+                });
+                tableHtml += '</tbody></table>';
+
+                let warning = '';
+                if (extraEntries > 0) {
+                    warning = `<div class="monthinfo" style="color:#c0392b;">В строке ${extraEntries} лишних значений сверх ${daysInMonth} дней месяца — проверьте данные.</div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+      <h2>${name}</h2>
+      <div class="monthinfo">${MONTH_NAMES[monthNum - 1]} ${yearNum}: всего дней — ${daysInMonth}, из них воскресений — ${sundayCount}${absentCount > 0 ? `, дней без данных (не был на работе) — ${absentCount}` : ''}.</div>
+      ${warning}
+      ${tableHtml}
+      <div class="totals">
+        <div class="stat"><div class="label">Дней с опозданием</div><div class="value neg">${lateDaysCount}</div></div>
+        <div class="stat"><div class="label">Суммарное опоздание</div><div class="value neg">${fmt(totalLate)}</div></div>
+        <div class="stat"><div class="label">Дней с ранним уходом</div><div class="value neg">${earlyDaysCount}</div></div>
+        <div class="stat"><div class="label">Суммарный ранний уход</div><div class="value neg">${fmt(totalEarly)}</div></div>
+      </div>
+    `;
+                resultsBox.appendChild(card);
+            });
+        }
+
+        function calculateStandard() {
+            const raw = document.getElementById('input').value;
+            const errBox = document.getElementById('error');
+            const resultsBox = document.getElementById('results');
+            errBox.textContent = '';
+            resultsBox.innerHTML = '';
+
+            const normStr = document.getElementById('norm').value;
+            const normMin = parseTime(normStr);
+            if (normMin === null) {
+                errBox.textContent = 'Некорректный формат нормы. Используйте чч:мм, например 7:00';
+                return;
+            }
+
+            const monthNum = parseInt(document.getElementById('month').value);
+            const yearNum = parseInt(document.getElementById('year').value);
+            if (!monthNum || !yearNum || yearNum < 1900) {
+                errBox.textContent = 'Укажите корректные месяц и год.';
+                return;
+            }
+            const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+            let sundayCount = 0;
+            const weekdayOf = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const wd = new Date(yearNum, monthNum - 1, d).getDay();
+                weekdayOf.push(wd);
+                if (wd === 0) sundayCount++;
+            }
+
+            const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) {
+                errBox.textContent = 'Вставьте хотя бы одну строку с данными.';
+                return;
+            }
+
+            lines.forEach(line => {
+                const tokens = line.split(/\t+|\s{2,}/).map(t => t.trim()).filter(t => t.length > 0);
+                // fallback: if no tabs/double-spaces, split by single spaces
+                let parts = tokens.length > 1 ? tokens : line.split(/\s+/);
+
+                // Separate name tokens (not matching a day-entry pattern) from day entries
+                const dayPattern = /^(-|\d{1,2}:\d{2}-(Нет|нет|\d{1,2}:\d{2}))$/;
+                let nameParts = [];
+                let dayParts = [];
+                let splitDone = false;
+                for (const tok of parts) {
+                    if (!splitDone && !dayPattern.test(tok)) {
+                        nameParts.push(tok);
+                    } else {
+                        splitDone = true;
+                        dayParts.push(tok);
+                    }
+                }
+                const name = nameParts.join(' ') || 'Сотрудник';
+
+                let totalOver = 0, totalUnder = 0, absentCount = 0;
+                const rows = [];
+
+                for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+                    const entry = dayParts[dayNum - 1];
+                    const isSunday = weekdayOf[dayNum - 1] === 0;
+
+                    if (entry === undefined) {
+                        absentCount++;
+                        rows.push({ dayNum, entry: '—', isSunday, type: 'absent' });
+                        continue;
+                    }
+                    if (entry === '-') {
+                        rows.push({ dayNum, entry, isSunday, worked: null, type: 'off' });
+                        continue;
+                    }
+                    const m = entry.match(/^(\d{1,2}:\d{2})-(Нет|нет|\d{1,2}:\d{2})$/);
+                    if (!m) {
+                        rows.push({ dayNum, entry, isSunday, worked: null, type: 'invalid' });
+                        continue;
+                    }
+                    const start = parseTime(m[1]);
+                    if (m[2].toLowerCase() === 'нет') {
+                        rows.push({ dayNum, entry, isSunday, worked: normMin, type: 'full', diff: 0 });
+                        continue;
+                    }
+                    const end = parseTime(m[2]);
+                    let worked = end - start;
+                    if (worked < 0) worked += 24 * 60; // overnight safety
+                    const diff = worked - normMin;
+                    if (diff > 0) totalOver += diff;
+                    if (diff < 0) totalUnder += -diff;
+                    rows.push({ dayNum, entry, isSunday, worked, type: diff > 0 ? 'over' : (diff < 0 ? 'under' : 'exact'), diff });
+                }
+
+                const extraEntries = dayParts.length > daysInMonth ? dayParts.length - daysInMonth : 0;
+
+                let tableHtml = '<table><thead><tr><th>Дата</th><th>День нед.</th><th>Время</th><th>Отработано</th><th>Норма</th><th>Переработка</th><th>Недоработка</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    const sundayCls = r.isSunday ? 'sunday' : '';
+                    const wd = WEEKDAY_SHORT[weekdayOf[r.dayNum - 1]];
+                    if (r.type === 'absent') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td colspan="5" class="absent">${r.dayNum} число — не был на работе (данных нет)</td></tr>`;
+                    } else if (r.type === 'off') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>-</td><td class="dayoff">выходной</td><td>-</td><td>-</td><td>-</td></tr>`;
+                    } else if (r.type === 'invalid') {
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>${r.entry}</td><td colspan="4" style="color:#c0392b;">не удалось распознать</td></tr>`;
+                    } else {
+                        const overCell = r.diff > 0 ? fmt(r.diff) : '—';
+                        const underCell = r.diff < 0 ? fmt(-r.diff) : '—';
+                        tableHtml += `<tr><td class="${sundayCls}">${r.dayNum}</td><td class="${sundayCls}">${wd}</td><td>${r.entry}</td><td>${fmt(r.worked)}</td><td>${fmt(normMin)}</td><td class="${r.diff > 0 ? 'over' : ''}">${overCell}</td><td class="${r.diff < 0 ? 'under' : ''}">${underCell}</td></tr>`;
+                    }
+                });
+                tableHtml += '</tbody></table>';
+
+                const net = totalOver - totalUnder;
+                const netClass = net > 0 ? 'pos' : (net < 0 ? 'neg' : '');
+                const netLabel = net > 0 ? 'Чистая переработка' : (net < 0 ? 'Чистая недоработка' : 'Баланс ровно по норме');
+
+                let warning = '';
+                if (extraEntries > 0) {
+                    warning = `<div class="monthinfo" style="color:#c0392b;">В строке ${extraEntries} лишних значений сверх ${daysInMonth} дней месяца — проверьте данные.</div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+      <h2>${name}</h2>
+      <div class="monthinfo">${MONTH_NAMES[monthNum - 1]} ${yearNum}: всего дней — ${daysInMonth}, из них воскресений — ${sundayCount}${absentCount > 0 ? `, дней без данных (не был на работе) — ${absentCount}` : ''}.</div>
+      ${warning}
+      ${tableHtml}
+      <div class="totals">
+        <div class="stat"><div class="label">Сумма переработок</div><div class="value pos">${fmt(totalOver)}</div></div>
+        <div class="stat"><div class="label">Сумма недоработок</div><div class="value neg">${fmt(totalUnder)}</div></div>
+        <div class="stat"><div class="label">${netLabel}</div><div class="value ${netClass}">${fmt(Math.abs(net))}</div></div>
+      </div>
+    `;
+                resultsBox.appendChild(card);
+            });
+        }
+    </script>
+</body>
+
+</html>
