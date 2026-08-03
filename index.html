@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Калькулятор рабочего времени</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body {
             font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -76,6 +77,29 @@
 
         button:hover {
             background: #c1633f;
+        }
+
+        .save-btn {
+            background: #fff;
+            color: #d97757;
+            border: 1px solid #d97757;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .save-btn:hover {
+            background: #fdf3ea;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
         .card {
@@ -210,13 +234,16 @@
         <div class="row">
             <label>Тип графика:</label>
             <label style="display:flex; align-items:center; gap:4px; font-weight:400;">
-                <input type="radio" name="empType" value="standard" checked onchange="toggleType()"> обычный
+                <input type="radio" name="empType" value="standard" checked onchange="toggleType()"> обычный (норма
+                часов)
             </label>
             <label style="display:flex; align-items:center; gap:4px; font-weight:400;">
-                <input type="radio" name="empType" value="consultant" onchange="toggleType()"> консультант
+                <input type="radio" name="empType" value="consultant" onchange="toggleType()"> консультант (смены
+                10:00–16:00 / 16:00–22:00, опоздания и ранний уход)
             </label>
             <label style="display:flex; align-items:center; gap:4px; font-weight:400;">
-                <input type="radio" name="empType" value="custom" onchange="toggleType()"> свой график
+                <input type="radio" name="empType" value="custom" onchange="toggleType()"> свой график (как консультант,
+                одна смена со своими часами)
             </label>
         </div>
 
@@ -270,6 +297,28 @@
             });
             document.getElementById('year').value = now.getFullYear();
         })();
+
+        let cardCounter = 0;
+
+        function saveCardAsImage(cardId, fileName) {
+            const el = document.getElementById(cardId);
+            if (!el || typeof html2canvas === 'undefined') {
+                alert('Не удалось сохранить изображение. Проверьте подключение к интернету (нужна библиотека html2canvas) и попробуйте снова.');
+                return;
+            }
+            const btn = el.querySelector('.save-btn');
+            if (btn) btn.style.visibility = 'hidden';
+            html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
+                if (btn) btn.style.visibility = 'visible';
+                const link = document.createElement('a');
+                link.download = (fileName || 'tabel') + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }).catch(err => {
+                if (btn) btn.style.visibility = 'visible';
+                alert('Ошибка при сохранении изображения: ' + err.message);
+            });
+        }
 
         function fmtHM(mins) {
             const h = Math.floor(mins / 60);
@@ -440,8 +489,13 @@
 
                 const card = document.createElement('div');
                 card.className = 'card';
+                const cardId = 'card_' + (cardCounter++);
+                card.id = cardId;
                 card.innerHTML = `
-      <h2>${name}</h2>
+      <div class="card-header">
+        <h2>${name}</h2>
+        <button class="save-btn" onclick="saveCardAsImage('${cardId}','${name.replace(/[^a-zA-Zа-яА-Я0-9]+/g, '_')}')">Сохранить как фото</button>
+      </div>
       <div class="monthinfo">${MONTH_NAMES[monthNum - 1]} ${yearNum}: всего дней — ${daysInMonth}, из них воскресений — ${sundayCount}${absentCount > 0 ? `, дней без данных (не был на работе) — ${absentCount}` : ''}.</div>
       ${warning}
       ${tableHtml}
@@ -577,8 +631,13 @@
 
                 const card = document.createElement('div');
                 card.className = 'card';
+                const cardId = 'card_' + (cardCounter++);
+                card.id = cardId;
                 card.innerHTML = `
-      <h2>${name}</h2>
+      <div class="card-header">
+        <h2>${name}</h2>
+        <button class="save-btn" onclick="saveCardAsImage('${cardId}','${name.replace(/[^a-zA-Zа-яА-Я0-9]+/g, '_')}')">Сохранить как фото</button>
+      </div>
       <div class="monthinfo">${MONTH_NAMES[monthNum - 1]} ${yearNum}: всего дней — ${daysInMonth}, из них воскресений — ${sundayCount}${absentCount > 0 ? `, дней без данных (не был на работе) — ${absentCount}` : ''}.</div>
       ${warning}
       ${tableHtml}
